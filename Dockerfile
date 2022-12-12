@@ -37,7 +37,8 @@ ENV DOCKER_VERNEMQ_KUBERNETES_LABEL_SELECTOR="app=vernemq" \
     VERNEMQ_VERSION="1.12.6.2"
 WORKDIR /vernemq
 
-COPY --chown=10000:10000 --chmod=765 bin/vernemq.sh /usr/sbin/start_vernemq
+COPY --chown=10000:10000 bin/vernemq.sh /usr/sbin/start_vernemq
+RUN chmod +x /usr/sbin/start_vernemq
 COPY --chown=10000:10000 files/vm.args /vernemq/etc/vm.args
 COPY --chown=10000:10000 --from=builder /vernemq /vernemq
 
