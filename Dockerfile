@@ -17,6 +17,7 @@ RUN git clone --depth 1 \
     /usr/src/vernemq
 
 RUN cd /usr/src/vernemq && \
+    git rev-parse --short HEAD && \
     make rel && \
     mv _build/default/rel/vernemq /vernemq && \
     chown -R 10000:10000 /vernemq
