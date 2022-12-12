@@ -1,0 +1,59 @@
+kind: pipeline
+type: kubernetes
+name: default
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+  - name: generate-image-tags
+    image: gittools/gitversion:5.8.3-alpine.3.12-6.0
+    volumes:
+      - name: /repo
+        path: ./
+    commands:
+      - apk add jq
+      - /tools/dotnet-gitversion -nonormalize -overrideconfig mode=Mainline -output file
+      - gvo=$(cat GitVersion.json)
+      - eval $(echo "$gvo" | jq -r 'to_entries|map("\(.key)=\(.value|tostring)")|.[]' )
+      - echo $FullSemVer
+      - echo -n "$FullSemVer,latest,$DRONE_BRANCH-latest,${DRONE_COMMIT_SHA:0:7}" > .tags
+      - cat .tags
+      - >
+        echo
+        "vernemq-docker {{#success build.status}}:smile_cat:{{else}}:scream_cat:{{/success}} <{{ build.link }}|Build #{{ build.number }}> [{{ build.branch }}] ({{ truncate build.commit 7 }}) version: $FullSemVer \n
+        {{ build.author }}: \"{{ build.message }}\"
+        "
+        > slack.tmpl
+
+  - name: publish-ecr
+    pull: if-not-exists
+    image: plugins/ecr
+    settings:
+      access_key:
+        from_secret: drone_user_drone_ecr_access_key
+      secret_key:
+        from_secret: drone_user_drone_ecr_secret_key
+      context: ./
+      dockerfile: ./Dockerfile
+      region: us-east-1
+      registry: 011803411246.dkr.ecr.us-east-1.amazonaws.com
+      repo: vernemq
+  # # when:
+  # #     branch:
+  # #       - master
+
+  - name: notify
+    pull: if-not-exists
+    image: plugins/slack
+    settings:
+      channel: lattice-ops
+      template: "file:/drone/src/slack.tmpl"
+      username: drone
+      webhook:
+        from_secret: slack_webhook
+    when:
+      status:
+        - success
+        - failure
